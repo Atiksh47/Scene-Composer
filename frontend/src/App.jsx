@@ -1,18 +1,33 @@
 import { useState } from 'react'
 import './App.css'
+import { storyboardAPI } from './api'
+import Storyboard from './components/Storyboard'
 
 function App() {
   const [story, setStory] = useState('')
   const [loading, setLoading] = useState(false)
+  const [scenes, setScenes] = useState([])
+  const [error, setError] = useState(null)
 
   const handleGenerate = async () => {
-    // TODO: Implement storyboard generation
+    if (!story.trim()) {
+      setError('Please enter a story')
+      return
+    }
+
     setLoading(true)
+    setError(null)
+    setScenes([])
+    
     try {
-      // API call will go here
-      console.log('Generating storyboard for:', story)
+      const storyboard = await storyboardAPI.generateStoryboard(story)
+      setScenes(storyboard)
     } catch (error) {
       console.error('Error generating storyboard:', error)
+      const errorMessage = error.response?.data?.detail || 
+                          error.message || 
+                          'Failed to generate storyboard. Please try again.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -43,9 +58,25 @@ function App() {
           </button>
         </div>
         
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+        
         <div className="storyboard-section">
-          {/* Storyboard will be displayed here */}
-          <p className="placeholder">Storyboard will appear here...</p>
+          {loading ? (
+            <div className="loading-spinner">
+              <div className="spinner"></div>
+              <div className="loading-text">Generating your storyboard... This may take a minute.</div>
+            </div>
+          ) : scenes.length > 0 ? (
+            <Storyboard scenes={scenes} />
+          ) : (
+            <p className="placeholder">
+              Storyboard will appear here...
+            </p>
+          )}
         </div>
       </main>
     </div>

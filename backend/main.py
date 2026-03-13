@@ -3,12 +3,21 @@ FastAPI backend for AI Scene Composer
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
 load_dotenv()
 
 app = FastAPI(title="AI Scene Composer API", version="1.0.0")
+
+# Create images directory if it doesn't exist
+images_dir = Path(__file__).parent / "images"
+images_dir.mkdir(exist_ok=True)
+
+# Mount static files for serving images
+app.mount("/api/images", StaticFiles(directory=str(images_dir)), name="images")
 
 # CORS configuration
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")

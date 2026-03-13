@@ -25,21 +25,89 @@ class OllamaService:
         Returns:
             Generated text response
         """
-        # TODO: Implement Ollama API call
-        pass
+        url = f"{self.base_url}/api/generate"
+        
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False
+        }
+        
+        if system_prompt:
+            payload["system"] = system_prompt
+        
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            try:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                return data.get("response", "").strip()
+            except httpx.RequestError as e:
+                raise Exception(f"Failed to connect to Ollama: {str(e)}")
+            except httpx.HTTPStatusError as e:
+                raise Exception(f"Ollama API error: {e.response.status_code} - {e.response.text}")
     
-    async def split_story_into_scenes(self, story: str) -> list[dict]:
+    async def split_story_into_scenes(self, story: str, num_scenes: Optional[int] = None) -> list[dict]:
         """
         Split a story into scenes using LLM
         
         Args:
             story: Full story text
+            num_scenes: Optional number of scenes to create
             
         Returns:
             List of scene dictionaries with description and narration
         """
-        # TODO: Implement story splitting logic
-        pass
+        system_prompt = """You are a storyboard assistant. Your task is to split stories into scenes.
+For each scene, provide:
+1. A brief visual description (what would be shown in an image)
+2. A narration text (what would be narrated over the scene)
+
+Format your response as a JSON array of objects, where each object has:
+- "scene_number": integer (starting from 1)
+- "description": string (visual description for image generation)
+- "narration": string (narrated text for the scene)
+
+Be concise but descriptive. Return ONLY the JSON array, no other text."""
+
+        user_prompt = f"""Split the following story into scenes. 
+{f'Create exactly {num_scenes} scenes.' if num_scenes else 'Determine an appropriate number of scenes based on the story structure.'}
+
+Story:
+{story}
+
+Return a JSON array of scene objects with scene_number, description, and narration fields."""
+
+        response_text = await self.generate_text(user_prompt, system_prompt)
+        
+        # Try to extract JSON from response
+        import json
+        import re
+        
+        # Look for JSON array in the response
+        json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+        if json_match:
+            try:
+                scenes = json.loads(json_match.group())
+                # Validate and normalize structure
+                result = []
+                for i, scene in enumerate(scenes, 1):
+                    if isinstance(scene, dict):
+                        result.append({
+                            "scene_number": scene.get("scene_number", i),
+                            "description": scene.get("description", "").strip(),
+                            "narration": scene.get("narration", "").strip()
+                        })
+                return result if result else [{"scene_number": 1, "description": story[:200], "narration": story[:100]}]
+            except json.JSONDecodeError:
+                pass
+        
+        # Fallback: create a single scene from the story
+        return [{
+            "scene_number": 1,
+            "description": story[:200] + "..." if len(story) > 200 else story,
+            "narration": story[:150] + "..." if len(story) > 150 else story
+        }]
     
     async def generate_image_prompt(self, scene_description: str) -> str:
         """
@@ -51,6 +119,22 @@ class OllamaService:
         Returns:
             Detailed image generation prompt
         """
-        # TODO: Implement prompt generation
-        pass
+        system_prompt = """You are an image prompt generator. Convert scene descriptions into detailed, 
+vivid image generation prompts that will produce high-quality illustrations. Include:
+- Visual details (characters, setting, objects)
+- Composition and framing
+- Style and mood
+- Lighting and atmosphere
+
+Be specific and descriptive. Return ONLY the prompt text, no explanations."""
+
+        user_prompt = f"""Convert this scene description into a detailed image generation prompt:
+
+{scene_description}
+
+Generate a vivid, detailed prompt for text-to-image generation."""
+
+        prompt = await self.generate_text(user_prompt, system_prompt)
+        # Clean up the prompt and ensure it's well-formatted
+        return prompt.strip()
 

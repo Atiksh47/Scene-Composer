@@ -44,3 +44,6 @@ logs/
 # Frontend build
 frontend/dist/
 
+# Generated images
+backend/images/
+
