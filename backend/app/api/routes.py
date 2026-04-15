@@ -31,8 +31,8 @@ async def generate_storyboard(request: StoryRequest):
     3. Generate images for each scene
     4. Return complete storyboard with images and narration
     """
-    from app.services.ollama_service import OllamaService
-    from app.services.image_service import ImageService
+    from ..services.ollama_service import OllamaService
+    from ..services.image_service import ImageService
     
     if not request.story or not request.story.strip():
         raise HTTPException(status_code=400, detail="Story text is required")
@@ -95,7 +95,7 @@ async def generate_storyboard(request: StoryRequest):
         
         print(f"Storyboard generation complete with {len(storyboard)} scenes")
         return storyboard
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -111,7 +111,7 @@ async def test_ollama():
     """
     Test endpoint to verify Ollama connection
     """
-    from app.services.ollama_service import OllamaService
+    from ..services.ollama_service import OllamaService
     
     try:
         ollama_service = OllamaService()

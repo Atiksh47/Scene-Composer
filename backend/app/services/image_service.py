@@ -10,8 +10,12 @@ from pathlib import Path
 
 # Using Hugging Face Inference API with a free text-to-image model
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "stabilityai/stable-diffusion-2-1")
-HUGGINGFACE_API_URL = f"https://api-inference.huggingface.co/models/{HUGGINGFACE_MODEL}"
+HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "black-forest-labs/FLUX.1-schnell")
+HUGGINGFACE_API_URL = f"https://router.huggingface.co/hf-inference/models/{HUGGINGFACE_MODEL}"
+
+if not HUGGINGFACE_API_KEY or HUGGINGFACE_API_KEY == "your_key_here":
+    print("WARNING: HUGGINGFACE_API_KEY is not set. Image generation will fail. "
+          "Set it in backend/.env to enable images.")
 
 # Image storage directory
 IMAGES_DIR = Path(__file__).parent.parent.parent / "images"

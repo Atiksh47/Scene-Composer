@@ -5,8 +5,8 @@ import httpx
 import os
 from typing import Optional
 
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama2")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:0.8b")
 
 
 class OllamaService:
@@ -30,13 +30,14 @@ class OllamaService:
         payload = {
             "model": self.model,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "think": False  # Disable extended reasoning for faster responses
         }
-        
+
         if system_prompt:
             payload["system"] = system_prompt
-        
-        async with httpx.AsyncClient(timeout=120.0) as client:
+
+        async with httpx.AsyncClient(timeout=300.0) as client:
             try:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
@@ -79,17 +80,19 @@ Story:
 Return a JSON array of scene objects with scene_number, description, and narration fields."""
 
         response_text = await self.generate_text(user_prompt, system_prompt)
-        
-        # Try to extract JSON from response
+
         import json
         import re
-        
-        # Look for JSON array in the response
-        json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+
+        # Strip markdown code fences (```json ... ``` or ``` ... ```)
+        cleaned = re.sub(r'```(?:json)?\s*', '', response_text)
+        cleaned = re.sub(r'```', '', cleaned).strip()
+
+        # Try to find a JSON array anywhere in the (cleaned) response
+        json_match = re.search(r'\[.*\]', cleaned, re.DOTALL)
         if json_match:
             try:
                 scenes = json.loads(json_match.group())
-                # Validate and normalize structure
                 result = []
                 for i, scene in enumerate(scenes, 1):
                     if isinstance(scene, dict):
@@ -98,11 +101,13 @@ Return a JSON array of scene objects with scene_number, description, and narrati
                             "description": scene.get("description", "").strip(),
                             "narration": scene.get("narration", "").strip()
                         })
-                return result if result else [{"scene_number": 1, "description": story[:200], "narration": story[:100]}]
+                if result:
+                    return result
             except json.JSONDecodeError:
                 pass
-        
+
         # Fallback: create a single scene from the story
+        print("Warning: Could not parse JSON scenes from model response, using fallback.")
         return [{
             "scene_number": 1,
             "description": story[:200] + "..." if len(story) > 200 else story,
